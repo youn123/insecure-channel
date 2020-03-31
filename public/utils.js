@@ -19,3 +19,20 @@ function breakText(text, threshold) {
 
     return {text: chars.join(''), numNewlines: numNewlines};
 }
+
+function arrayEquals(a, b) {
+    if (a.length != b.length) {
+        return false;
+    }
+
+    a.sort((x, y) => x.localeCompare(y));
+    b.sort((x, y) => x.localeCompare(y));
+
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] != b[i]) {
+            return false;
+        }
+    }
+
+    return true;
+}

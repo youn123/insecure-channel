@@ -3,8 +3,44 @@ const Router = require('./router');
 const ecstatic = require('ecstatic');
 
 const router = new Router();
-
 const defaultHeaders = {'Content-Type': 'text/plain'};
+
+class Game {
+    constructor(roomId) {
+        this.roomId = roomId;
+        this.players = {};
+        this.messageQ = [];
+        this.nextMessageId = 0;
+        this.version = 0;
+    }
+
+    addPlayer(name) {
+        this.players[name] = true;
+        this.messageQ.push({
+            text: `Welcome, <span class="mention">${name}</span>`,
+            from: '*',
+            type: 'BOT'
+        });
+        this.version++;
+    }
+
+    pushMessage(message) {
+        this.messageQ.push(message);
+        this.version++;
+    }
+
+    getGameState(page, from) {
+        if (from) {
+            this.players[from] = this.version;
+        }
+
+        return {
+            players: Object.keys(this.players),
+            messages: from ? this.messageQ.slice(page) : [],
+            version: this.version
+        };
+    }
+}
 
 // request is a readable stream
 function readStream(stream) {
@@ -21,40 +57,74 @@ router.add('POST', /^\/rooms\/([^\/]+)$/, async (server, roomId, request) => {
     if (roomId in server.rooms) {
         return {status: 409, body: `${roomId} already exists. Try another name!`};
     } else {
-        let queues = {};
-        queues[0] = [];
-        server.rooms[roomId] = {nextId: 1, queues: queues};
+        server.rooms[roomId] = new Game(roomId);
         server.waiting[roomId] = [];
         return {status: 201};
     }
 });
 
-// join room
-router.add('PUT', /^\/rooms\/([^\/]+)$/, async (server, roomId, searchParams, request) => {
+// wake up room
+router.add('GET', /^\/rooms\/([^\/]+)\/ping$/, async (server, roomId, request) => {
+    if (roomId in server.rooms) {
+        server.updated(roomId);
+        return {status: 200};
+    } else {
+        return {status: 409};
+    }
+});
+
+// join room w/ name
+router.add('POST', /^\/rooms\/([^\/]+)\/players$/, async (server, roomId, request) => {
     if (!roomId in server.rooms) {
         return {status: 409, body: `${roomId} doesn't exist.`};
     } else {
-        if (!searchParams.get('dest')) {
-            let id = server.rooms[roomId].nextId++;
-            server.rooms[roomId].queues[id] = [];
-            return {status: 201, body: JSON.stringify({peerId: id})};
+        let name = await readStream(request);
+        if (name in server.rooms[roomId].players) {
+            return {status: 409, body: `${name} already exists. Try another!`};
         }
-
-        let data = await readStream(request);
-        // console.log(data);        
-        server.rooms[roomId].queues[searchParams.get('dest')].push(data);
-        server.updated(roomId, searchParams.get('dest')); // awake waiting requests
+        
+        server.rooms[roomId].addPlayer(name);
+        server.updated(roomId);
 
         return {status: 201};
     }
 });
 
-// get signal info
-router.add('GET', /^\/rooms\/([^\/]+)$/, async (server, roomId, searchParams, request) => {
-    // let tag = /"(.*)"/.exec(request.headers['if-none-match']);
+// get game state
+router.add('GET', /^\/rooms\/([^\/]+)$/, async (server, roomId, request) => {
+    let tag = /(\d+)/.exec(request.headers['if-none-match']);
     let wait = /wait=(\d+)/.exec(request.headers['prefer']);
 
-    return server.waitForChanges(wait[1], roomId, searchParams.get('dest'));
+    if (!wait || (!tag && tag[1] != server.rooms[roomId].version)) {
+        return {
+            body: JSON.stringify(server.rooms[roomId].getGameState(request.queryParams.get('page'), request.queryParams.get('from')))
+        };
+    }
+
+    if (request.queryParams.get('from')) {
+        if (request.queryParams.get('page') < server.rooms[roomId].messageQ.length) {
+            return {
+                body: JSON.stringify(server.rooms[roomId].getGameState(request.queryParams.get('page'), request.queryParams.get('from')))
+            };
+        }
+    }
+
+    return server.waitForChanges(wait[1], roomId, request.queryParams);
+});
+
+// chat
+router.add('POST', /^\/rooms\/([^\/]+)\/chat$/, async (server, roomId, request) => {
+    if (!roomId in server.rooms) {
+        return {status: 409, body: `${roomId} doesn't exist.`};
+    } else {
+        console.log('chat received');
+        
+        let message = JSON.parse(await readStream(request));
+        server.rooms[roomId].pushMessage(message);
+        server.updated(roomId);
+
+        return {status: 201};
+    }
 });
 
 class Server {
@@ -91,39 +161,31 @@ class Server {
         this.server.close();
     }
 
-    waitForChanges(time, roomId, dest) {
+    waitForChanges(time, roomId, queryParams) {
         return new Promise(resolve => {
-            resolve.dest = dest;
-            if (this.rooms[roomId].queues[dest].length == 0) {
-                this.waiting[roomId].push(resolve);
-                setTimeout(() => {
-                    if (!this.waiting[roomId].includes(resolve)) {
-                        return;
-                    }
-                    this.waiting[roomId] = this.waiting[roomId].filter(r => r != resolve);
-                    resolve({status: 201, body: JSON.stringify(this.rooms[roomId].queues[dest])});
-                    this.rooms[roomId].queues[dest] = [];
-                }, time * 1000);
-            } else {
-                resolve({status: 201, body: JSON.stringify(this.rooms[roomId].queues[dest])});
-                this.rooms[roomId].queues[dest] = [];
-            }
-        })
+            resolve.queryParams = queryParams;
+            this.waiting[roomId].push(resolve);
+
+            setTimeout(() => {
+                if (!this.waiting[roomId].includes(resolve)) {
+                    return;
+                }
+                this.waiting[roomId] = this.waiting[roomId].filter(r => r != resolve);
+                resolve({status: 201, body: JSON.stringify(this.rooms[roomId].getGameState(queryParams.get('page'), queryParams.get('from')))});
+            }, time * 1000);
+        });
     }
 
-    updated(roomId, dest) {
-        let response = {
-            body: JSON.stringify(this.rooms[roomId].queues[dest])
-        };
-
+    updated(roomId) {
         this.waiting[roomId].forEach(resolve => {
-            if (resolve.dest == dest) {
-                resolve(response);
-                this.rooms[roomId].queues[dest] = [];
-            }
+            let response = {
+                body: JSON.stringify(this.rooms[roomId].getGameState(resolve.queryParams.get('page'), resolve.queryParams.get('from')))
+            };
+
+            resolve(response);
         });
 
-        this.waiting[roomId] = this.waiting[roomId].filter(resolve => resolve.dest != dest);
+        this.waiting[roomId] = [];
     }
 }
 

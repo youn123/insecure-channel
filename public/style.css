@@ -1,3 +1,12 @@
+@font-face {
+    font-family: 'VT323';
+    src: url('/fonts/VT323-Regular.ttf') format('truetype'); /* Safari, Android, iOS */
+}
+
+h2 {
+    font-family: 'VT323';
+}
+
 body {
     display: flex;
     flex-direction: column;
@@ -63,6 +72,7 @@ p {
 }
 
 #name {
+    font-family: 'VT323';
     width: 100px;
     text-align: right;
     margin-right: 7px;

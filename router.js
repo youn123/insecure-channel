@@ -21,7 +21,8 @@ module.exports = class Router {
 
             if (!match || request.method != method) continue;
             let urlParts = match.slice(1).map(decodeURIComponent);
-            return handler(context, ...urlParts, queryParams, request);
+            request.queryParams = queryParams;
+            return handler(context, ...urlParts, request);
         }
 
         return null;
