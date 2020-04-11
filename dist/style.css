@@ -1,0 +1,168 @@
+@font-face {
+    font-family: 'VT323';
+    src: url('/fonts/VT323-Regular.ttf') format('truetype'); /* Safari, Android, iOS */
+}
+
+html {
+    height: 100%;
+}
+
+body {
+    height: 100%;
+    display: flex;
+    flex-direction: row;
+    margin: 0;
+}
+
+#banner {
+    height: 100%;
+    width: 20%;
+    background-color: #393E41;
+    padding-left: 20px;
+}
+
+#banner h1 {
+    color: white;
+    font-family: 'VT323';
+    letter-spacing: 0.05em;
+}
+
+#banner h3 {
+    color: white;
+    font-family: 'VT323';
+    letter-spacing: 0.05em;
+}
+
+#game-info {
+    height: 30%;
+    width: 50%;
+    background-color: #f2f2f2;
+    white-space: pre-wrap;
+    font-family: 'VT323';
+    letter-spacing: 0.05em;
+    font-size: x-large;
+    overflow-y: scroll;
+}
+
+#chat {
+    height: 100%;
+    width: 50%;
+    background-color: #f2f2f2;
+    display: flex;
+    flex-direction: column;
+}
+
+.messages {
+    width: 100%;
+    height: 97%;
+    display: flex;
+    flex-direction: column-reverse;
+    overflow-y: scroll;
+}
+
+.text-box {
+    width: 100%;
+    /* height: 3%; */
+    display: flex;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    background-color: white;
+}
+
+.name-container {
+    width: 9%;
+    height: 100%;
+    margin: 0;
+    margin-right: 5px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.prompt {
+    height: 100%;
+    margin: 0;
+    margin-right: 7px;
+    font-size: x-large;
+    font-family: 'VT323';
+}
+
+.name-container p {
+    font-size: x-large;
+    margin: 0;
+    text-align: center;
+    font-family: 'VT323';
+    color: orange;
+}
+
+.text-box textarea {
+    width: 90%;
+    margin: 0;
+    resize: none;
+    font-family: 'VT323';
+    font-size: x-large;
+    border: none;
+}
+
+.text-box textarea:focus {
+    outline: none;
+}
+
+#private-chats {
+    height: 100%;
+    width: 30%;
+    border-left: 1px grey solid;
+    background-color: #f2f2f2;
+    display: flex;
+    flex-direction: column;
+}
+
+.private-chat {
+    flex: 1 1 auto;
+    min-width: 100%;
+    background-color: #f2f2f2;
+    display: flex;
+    flex-direction: column;
+}
+
+.display-name {
+    width: 100%;
+    background-color: #08A045;
+    color: white;
+    font-size: x-large;
+    font-family: 'VT323';
+    text-align: center;
+}
+
+.message {
+    display: flex;
+    flex-direction: row;
+}
+
+.handle {
+    color: #D8572A;
+    margin: 0;
+    margin-right: 5px;
+    text-align: right;
+    width: 9%;
+    font-size: x-large;
+    white-space: pre-wrap;
+    font-family: 'VT323';
+}
+
+.carrot {
+    margin-right: 7px;
+    white-space: pre-wrap;
+    font-family: 'VT323';
+    font-size: x-large;
+}
+
+.multiline {
+    margin: 0;
+    white-space: pre-wrap;
+    font-family: 'VT323';
+    font-size: x-large;
+}
+
+.mention {
+    color: #D8572A;
+}

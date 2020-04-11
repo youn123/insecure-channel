@@ -1,4 +1,8 @@
-function breakText(text, threshold) {
+/**
+ * Contains general-purpose useful functions 
+ */
+
+export function breakText(text, threshold) {
     let words = text.split(' ');
     let chars = text.split('');
 
@@ -20,7 +24,7 @@ function breakText(text, threshold) {
     return {text: chars.join(''), numNewlines: numNewlines};
 }
 
-function arrayEquals(a, b) {
+export function arrayEquals(a, b) {
     if (a.length != b.length) {
         return false;
     }
