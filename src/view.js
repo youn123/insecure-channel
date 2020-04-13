@@ -14,6 +14,14 @@ function addTextBoxListener(event, handler) {
   textBox.addEventListener(event, handler);
 }
 
+function hideLongText(text) {
+  if (text.length > 8) {
+    return text.substring(0, 5) + '...';
+  } else {
+    return text;
+  }
+}
+
 function appendPublic(...msgs) {
     let messages = [];
 
@@ -41,7 +49,7 @@ function appendPublic(...msgs) {
       
         let handle = document.createElement('DIV');
         handle.className = 'handle';
-        handle.innerHTML = from;
+        handle.innerHTML = hideLongText(from);
         handle.style.color = race == 'BOT' ? 'blue' : 'orange';
         
         let carrot = document.createElement('DIV');
@@ -67,14 +75,15 @@ function appendPublic(...msgs) {
 }
 
 function displayGame(roomName, players) {
-  gameInfo.innerHTML = `room: [${roomName}]\n` + players.join('\n');
+  let display =  `[${roomName}]\n` + players.join('\n');
+
+  if (display != gameInfo.innerHTML) {
+    gameInfo.innerHTML = display;
+  }
 }
 
 function setName(name) {
-  let names = document.getElementsByClassName('name');
-  for (let i = 0; i < names.length; i++) {
-    names[i].innerHTML = name;
-  }
+  document.getElementsByClassName('name')[0].innerHTML = hideLongText(name);
 }
 
 function addPrivateChannel(id, me, other, readonly, textBoxListeners) {
@@ -95,12 +104,14 @@ function addPrivateChannel(id, me, other, readonly, textBoxListeners) {
   nameContainer.className = 'name-container';
   let name = document.createElement('P');
   name.className = 'name';
-  name.innerHTML = me;
+  name.innerHTML = hideLongText(me);
+  name.style['font-size'] = 'large';
   nameContainer.appendChild(name);
 
   let prompt = document.createElement('DIV');
   prompt.className = 'prompt';
   prompt.innerHTML = '&gt;';
+  prompt.style['font-size'] = 'large';
 
   let textarea = document.createElement('TEXTAREA');
   textarea.rows = 1;
@@ -151,20 +162,23 @@ function appendPrivate(channelId, ...msgs) {
     
       let handle = document.createElement('DIV');
       handle.className = 'handle';
-      handle.innerHTML = from;
+      handle.innerHTML = hideLongText(from);
       handle.style.color = race == 'BOT' ? 'blue' : 'orange';
+      handle.style['font-size'] = 'large';
       
       let carrot = document.createElement('DIV');
       carrot.className = 'carrot';
       carrot.innerHTML = carrots.join('\n');
       carrot.style.color = race == 'BOT' ? 'blue' : 'black';
       carrot.id = 'carrot';
+      carrot.style['font-size'] = 'large';
     
       let body = document.createElement('P');
       body.className = 'multiline';
       text = text.replace(/\n/g, '<br>');
       body.innerHTML = text;
       body.style.color = race == 'BOT' ? 'blue' : 'black';
+      body.style['font-size'] = 'large';
     
       container.appendChild(handle);
       container.appendChild(carrot);
@@ -176,13 +190,39 @@ function appendPrivate(channelId, ...msgs) {
   privateChats[channelId].getElementsByClassName('messages')[0].prepend(...(messages.reverse()));
 }
 
+function startFresh() {
+  let first = publicChat.firstElementChild;
+  while (first) {
+    first.remove();
+    first = publicChat.firstElementChild; 
+  }
+  
+  for (let c of Object.keys(privateChats)) {
+    privateChats[c].remove();
+    delete privateChats[c];
+  }
+}
+
+function deletePrivateChannel(id) {
+  privateChats[id].remove();
+  delete privateChats[id];
+}
+
+function setOffline(id) {
+  console.log(privateChats[id].getElementsByClassName('display-name')[0]);
+  privateChats[id].getElementsByClassName('display-name')[0].style['background-color'] = 'red';
+}
+
 const view = {
   addTextBoxListener,
   appendPublic,
   displayGame,
   setName,
   addPrivateChannel,
-  appendPrivate
+  appendPrivate,
+  setOffline,
+  startFresh,
+  deletePrivateChannel
 };
 
 export default view;
