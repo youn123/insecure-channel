@@ -14,11 +14,29 @@ function addTextBoxListener(event, handler) {
   textBox.addEventListener(event, handler);
 }
 
-function hideLongText(text) {
-  if (text.length > 8) {
-    return text.substring(0, 5) + '...';
+function hideLongText(text, fontSize='x-large') {
+  let threshold = fontSize == 'x-large' ? 8 : 12;
+
+  if (text.length > threshold) {
+    return text.substring(0, threshold - 3) + '...';
   } else {
     return text;
+  }
+}
+
+function matchFontSize(length) {
+  if (length >= 12) {
+    return 'large';
+  } else {
+    return 'x-large';
+  }
+}
+
+function appendTextMessage(id, ...msgs) {
+  if (id == 'public') {
+    appendPublic(...msgs);
+  } else {
+    appendPrivate(id, ...msgs);
   }
 }
 
@@ -49,8 +67,9 @@ function appendPublic(...msgs) {
       
         let handle = document.createElement('DIV');
         handle.className = 'handle';
-        handle.innerHTML = hideLongText(from);
+        handle.style.fontSize = matchFontSize(from.length);
         handle.style.color = race == 'BOT' ? 'blue' : 'orange';
+        handle.innerHTML = hideLongText(from, handle.style.fontSize);
         
         let carrot = document.createElement('DIV');
         carrot.className = 'carrot';
@@ -104,8 +123,8 @@ function addPrivateChannel(id, me, other, readonly, textBoxListeners) {
   nameContainer.className = 'name-container';
   let name = document.createElement('P');
   name.className = 'name';
-  name.innerHTML = hideLongText(me);
-  name.style['font-size'] = 'large';
+  name.style['font-size'] = matchFontSize(me.length);
+  name.innerHTML = hideLongText(me, name.style.fontSize);
   nameContainer.appendChild(name);
 
   let prompt = document.createElement('DIV');
@@ -162,9 +181,9 @@ function appendPrivate(channelId, ...msgs) {
     
       let handle = document.createElement('DIV');
       handle.className = 'handle';
-      handle.innerHTML = hideLongText(from);
+      handle.style.fontSize = matchFontSize(from.length);
       handle.style.color = race == 'BOT' ? 'blue' : 'orange';
-      handle.style['font-size'] = 'large';
+      handle.innerHTML = hideLongText(from, handle.style.fontSize);
       
       let carrot = document.createElement('DIV');
       carrot.className = 'carrot';
@@ -215,11 +234,10 @@ function setOffline(id) {
 
 const view = {
   addTextBoxListener,
-  appendPublic,
+  appendTextMessage,
   displayGame,
   setName,
   addPrivateChannel,
-  appendPrivate,
   setOffline,
   startFresh,
   deletePrivateChannel

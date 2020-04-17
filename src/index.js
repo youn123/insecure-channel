@@ -30,13 +30,10 @@ let publicCommands = {}; // commands you can run from public chat
 let privateCommands = {}; // commands you can run from private chats
 
 function bot(text, channelId='public') {
-  let msg = {text: text, from: '*', race: 'BOT'};
-
-  if (channelId == 'public') {
-    view.appendPublic(msg);
-  } else {
-    view.appendPrivate(channelId, msg);
-  }
+  view.appendTextMessage(
+    channelId,
+    {text: text, from: '*', race: 'BOT'}
+  );
 }
 
 bot(INTRO);
@@ -138,11 +135,7 @@ class Game {
           }
 
           for (let channel of Object.values(this.channels)) {
-            if (channel.id == 'public') {
-              view.appendPublic(...channel.consumeMessages());
-            } else {
-              view.appendPrivate(channel.id, ...channel.consumeMessages());
-            }
+            view.appendTextMessage(channel.id, ...channel.consumeMessages());
           }
         })
       .catch(error => {
@@ -443,7 +436,7 @@ function textKeyDownListenerFactory(commands, context) {
             break;
           case NEW:
           case JOINING:
-            view.appendPublic({text: this.value, from: '...', race: 'HUMAN'});
+            view.appendTextMessage('public', {text: this.value, from: '...', race: 'HUMAN'});
             break;
         }
   
