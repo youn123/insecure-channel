@@ -1,5 +1,5 @@
 /**
- * Contains general-purpose useful functions 
+ * Contains general-purpose functions 
  */
 
 export function breakText(text, threshold) {
@@ -22,21 +22,4 @@ export function breakText(text, threshold) {
     }
 
     return {text: chars.join(''), numNewlines: numNewlines};
-}
-
-export function arrayEquals(a, b) {
-    if (a.length != b.length) {
-        return false;
-    }
-
-    a.sort((x, y) => x.localeCompare(y));
-    b.sort((x, y) => x.localeCompare(y));
-
-    for (let i = 0; i < a.length; i++) {
-        if (a[i] != b[i]) {
-            return false;
-        }
-    }
-
-    return true;
 }

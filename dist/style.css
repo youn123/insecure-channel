@@ -3,6 +3,17 @@
     src: url('/fonts/VT323-Regular.ttf') format('truetype'); /* Safari, Android, iOS */
 }
 
+:root {
+    --banner-color: #393E41;
+    --window-color: #f2f2f2;
+    --bot-color: blue; 
+    --handle-color: #D8572A;
+    --message-color: black;
+    --text-in-banner: white;
+    --textbox-color: white;
+    --online-color: #08A045;
+}
+
 html {
     height: 100%;
 }
@@ -17,18 +28,20 @@ body {
 #banner {
     height: 100%;
     width: 20%;
-    background-color: #393E41;
+    background-color: var(--banner-color);
     padding-left: 20px;
 }
 
+/* title */
 #banner h1 {
-    color: white;
+    color: var(--text-in-banner);
     font-family: 'VT323';
     letter-spacing: 0.05em;
 }
 
+/* subtitle */
 #banner h3 {
-    color: white;
+    color: var(--text-in-banner);
     font-family: 'VT323';
     letter-spacing: 0.05em;
 }
@@ -36,7 +49,7 @@ body {
 #game-info {
     height: 30%;
     width: 50%;
-    background-color: #f2f2f2;
+    background-color: var(--window-color);
     white-space: pre-wrap;
     font-family: 'VT323';
     letter-spacing: 0.05em;
@@ -44,10 +57,10 @@ body {
     overflow-y: scroll;
 }
 
-#chat {
+#public-chat-window {
     height: 100%;
-    width: 50%;
-    background-color: #f2f2f2;
+    width: 40%;
+    background-color: var(--window-color);
     display: flex;
     flex-direction: column;
 }
@@ -67,11 +80,11 @@ body {
     display: flex;
     padding-top: 10px;
     padding-bottom: 10px;
-    background-color: white;
+    background-color: var(--textbox-color);
 }
 
-.name-container {
-    width: 9%;
+.handle-container {
+    width: 14%;
     height: 100%;
     margin: 0;
     margin-right: 5px;
@@ -87,16 +100,16 @@ body {
     font-family: 'VT323';
 }
 
-.name-container p {
+.handle {
     font-size: x-large;
     margin: 0;
     text-align: center;
     font-family: 'VT323';
-    color: orange;
+    color: var(--handle-color);
 }
 
 .text-box textarea {
-    width: 90%;
+    width: 85%;
     margin: 0;
     resize: none;
     font-family: 'VT323';
@@ -108,27 +121,27 @@ body {
     outline: none;
 }
 
-#private-chats {
+#private-chats-container {
     height: 100%;
-    width: 30%;
+    width: 40%;
     border-left: 1px grey solid;
-    background-color: #f2f2f2;
+    background-color: var(--window-color);
     display: flex;
     flex-direction: column;
 }
 
-.private-chat {
+.private-chat-window {
     flex: 1;
     min-width: 100%;
     /* min-height: 100%; */
-    background-color: #f2f2f2;
+    background-color: var(--window-color);
     display: flex;
     flex-direction: column;
 }
 
-.display-name {
+.private-chat-status {
     width: 100%;
-    background-color: #08A045;
+    background-color: var(--online-color);
     color: white;
     font-size: x-large;
     font-family: 'VT323';
@@ -140,12 +153,12 @@ body {
     flex-direction: row;
 }
 
-.handle {
-    color: #D8572A;
+.sender {
+    color: var(--handle-color);
     margin: 0;
     margin-right: 5px;
     text-align: right;
-    width: 9%;
+    width: 14%;
     font-size: x-large;
     white-space: pre-wrap;
     font-family: 'VT323';
@@ -166,5 +179,5 @@ body {
 }
 
 .mention {
-    color: #D8572A;
+    color: var(--handle-color);
 }

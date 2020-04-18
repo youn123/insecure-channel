@@ -26,11 +26,13 @@ let game;
 // keep track of keys pressed down here
 let keysPressedDown = {};
 
-let publicCommands = {}; // commands you can run from public chat
-let privateCommands = {}; // commands you can run from private chats
+// commands you can run from public chat
+let publicCommands = {};
+// commands you can run from private chats
+let privateCommands = {};
 
 function bot(text, channelId='public') {
-  view.appendTextMessage(
+  view.appendMessage(
     channelId,
     {text: text, from: '*', race: 'BOT'}
   );
@@ -71,7 +73,6 @@ class Game {
         })
         .then(responseJson => {
           responseJson = JSON.parse(responseJson);
-          // console.log(responseJson);
 
           // extract & untag data
           let type = responseJson.type;
@@ -109,16 +110,16 @@ class Game {
                     break;
                   case 'PLAYER_JOIN':
                     this.players.push(alert.new);
-                    view.displayGame(this.roomName, this.players);
+                    view.updateGameInfo(this.roomName, this.players);
                     break;
                   case 'PLAYER_LEAVE':
                     this.players = this.players.filter(p => !alert.dead.includes(p));
-                    view.displayGame(this.roomName, this.players);
+                    view.updateGameInfo(this.roomName, this.players);
 
                     for (let d of alert.dead) {
                       for (let channel of Object.values(this.channels)) {
                         if (channel.id != 'public' && channel.members.has(d)) {
-                          view.setOffline(channel.id);
+                          view.setChannelOffline(channel.id);
                         }
                       }
                     }
@@ -135,7 +136,7 @@ class Game {
           }
 
           for (let channel of Object.values(this.channels)) {
-            view.appendTextMessage(channel.id, ...channel.consumeMessages());
+            view.appendMessage(channel.id, ...channel.consumeMessages());
           }
         })
       .catch(error => {
@@ -151,7 +152,7 @@ class Game {
     }
 
     // TODO: clean up
-    view.startFresh();
+    view.reset();
     game = null;
 
     state = NEW;
@@ -199,7 +200,10 @@ class Game {
 }
 
 /**
- * Medium of communication
+ * Medium of communication.
+ * 
+ * Stores total sent messages, mode (broadcast or narrowcast), and
+ * member list.
  */
 class Channel {
   constructor(id, mode, members) {
@@ -277,7 +281,7 @@ publicCommands['/join'] = function(...args) {
 
       game = new Game(args[0]);
       game.players = responseJson.players;
-      view.displayGame(args[0], game.players);
+      view.updateGameInfo(args[0], game.players);
 
       bot(NAME_YOURSELF);
       window.setTimeout(() => game.run(), 5);
@@ -314,10 +318,9 @@ publicCommands['/me'] = function(...args) {
 
       state = JOINED;
       game.myName = args[0];
-      view.setName(args[0]);
+      view.setHandle(args[0]);
 
-      // alert itself of the new name
-      // kind of whacky way of doing it
+      // alert itself of the new name...kind of whacky way of doing it
       fetch(`/rooms/${game.roomName}/ping`);
     })
     .catch(error => {
@@ -362,8 +365,7 @@ publicCommands['/leave'] = function(...args) {
       state = NEW;
       game.running = false;
 
-      // alert itself
-      // kind of whacky way of doing it
+      // alert itself...kind of whacky way of doing it
       fetch(`/rooms/${game.roomName}/ping`);
 
     })
@@ -436,7 +438,7 @@ function textKeyDownListenerFactory(commands, context) {
             break;
           case NEW:
           case JOINING:
-            view.appendTextMessage('public', {text: this.value, from: '...', race: 'HUMAN'});
+            view.appendMessage('public', {text: this.value, from: '...', race: 'HUMAN'});
             break;
         }
   
