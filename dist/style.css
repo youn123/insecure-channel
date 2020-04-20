@@ -40,7 +40,7 @@ body {
 }
 
 /* subtitle */
-#banner h3 {
+#banner h2 {
     color: var(--text-in-banner);
     font-family: 'VT323';
     letter-spacing: 0.05em;
@@ -128,6 +128,14 @@ body {
     background-color: var(--window-color);
     display: flex;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+#empty {
+    font-family: 'VT323';
+    letter-spacing: 0.05em;
+    color: grey;
 }
 
 .private-chat-window {

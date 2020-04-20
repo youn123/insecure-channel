@@ -7,6 +7,8 @@ import { breakText } from './utils.js';
 let textBox = document.body.getElementsByTagName('textarea')[0];
 
 let publicChat = document.getElementsByClassName('messages')[0];
+let privateChatsContainer = document.getElementById('private-chats-container');
+let emptyMessage = document.getElementById('empty');
 let privateChats = {};
 
 let gameInfo = document.getElementById('game-info');
@@ -86,11 +88,18 @@ function appendMessage(id, ...msgs) {
   if (id == 'public') {
     publicChat.prepend(...(messages.reverse()));
   } else {
-    privateChats[channelId].getElementsByClassName('messages')[0].prepend(...(messages.reverse()));
+    privateChats[id].getElementsByClassName('messages')[0].prepend(...(messages.reverse()));
   }
 }
 
 function addPrivateChannel(id, me, other, readonly, textBoxListeners) {
+  if (Object.keys(privateChats).length == 0) {
+    privateChatsContainer.removeChild(emptyMessage);
+
+    privateChatsContainer.style.alignItems = 'flex-start';
+    privateChatsContainer.style.justifyContent = 'flex-start';
+  }
+
   let container = document.createElement('DIV');
   container.className = 'private-chat-window';
 
@@ -107,6 +116,7 @@ function addPrivateChannel(id, me, other, readonly, textBoxListeners) {
   // build handle
   let handleContainer = document.createElement('DIV');
   handleContainer.className = 'handle-container';
+
   let handle = document.createElement('P');
   handle.className = 'handle';
   handle.style.fontSize = matchFontSize(me.length);
@@ -117,7 +127,6 @@ function addPrivateChannel(id, me, other, readonly, textBoxListeners) {
   let prompt = document.createElement('DIV');
   prompt.className = 'prompt';
   prompt.innerHTML = '&gt;';
-  prompt.style['font-size'] = 'large';
 
   let textarea = document.createElement('TEXTAREA');
   textarea.rows = 1;
@@ -137,18 +146,24 @@ function addPrivateChannel(id, me, other, readonly, textBoxListeners) {
     container.appendChild(textBox);
   }
 
-  document.getElementById('private-chats-container').appendChild(container);
+  privateChatsContainer.appendChild(container);
   privateChats[id] = container;
 }
 
 function deletePrivateChannel(id) {
   privateChats[id].remove();
   delete privateChats[id];
+
+  if (Object.keys(privateChats).length == 0) {
+    privateChatsContainer.appendChild(emptyMessage);
+
+    privateChatsContainer.style.alignItems = 'center';
+    privateChatsContainer.style.justifyContent = 'center';
+  } 
 }
 
 function setChannelOffline(id) {
-  console.log(privateChats[id].getElementsByClassName('status')[0]);
-  privateChats[id].getElementsByClassName('display-name')[0].style['background-color'] = 'red';
+  privateChats[id].getElementsByClassName('private-chat-status')[0].style['background-color'] = 'red';
 }
 
 function updateGameInfo(roomName, players) {

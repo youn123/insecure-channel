@@ -132,6 +132,11 @@ class Game {
     pushMessage(message) {
         let id = message.to == 'everyone' ? 'public' : channelId(message.from, message.to);
 
+        if (message.from in this.channels) {
+            message.to = '???';
+            this.channels[id].pushMessage(message);
+        }
+
         if (id in this.channels) {
             this.channels[id].pushMessage(message);
             return true;
@@ -185,6 +190,10 @@ class Game {
         }
 
         this.channels[id] = new Channel(id, 'narrowcast', new Set([a, b]));
+        
+        this.channels[a] = new Channel(a, 'narrowcast', new Set(a));
+        this.channels[b] = new Channel(b, 'narrowcast', new Set(b));
+
         // alert a and b of new channel creation
         this.players[a].pushAlert({
             code: 'NEW_CHANNEL',
@@ -213,7 +222,6 @@ class Game {
             return {ok: false, msg: `channel between ${a} and ${b} does not exist.`}
         }
 
-        delete this.channels[id];
         // alert a and b of new channel creation
         this.players[a].pushAlert({
             code: 'DELETE_CHANNEL',
@@ -229,7 +237,20 @@ class Game {
             this.players[b].numPrivateChannels--;
         }
 
+        delete this.channels[id];
+        delete this.channels[a];
+        delete this.channels[b];
+
         return {ok: true, msg: null};
+    }
+
+    snoopChannel(name, id) {
+        if (this.channels.hasOwnProperty(id)) {
+            this.channels[id].addSnooper(name);
+            return true;
+        }
+
+        return false;
     }
 
     hasAlertsFor(name) {
@@ -260,6 +281,8 @@ class Channel {
         if (this.mode == 'narrowcast') {
             this.members = members;
         }
+
+        this.snoopers = [];
     }
 
     pushMessage(message) {
@@ -268,6 +291,10 @@ class Channel {
 
     getMessages(page=0) {
         return this.messageQ.slice(page);
+    }
+
+    addSnooper(name) {
+        this.snoopers.push(name);
     }
 }
 

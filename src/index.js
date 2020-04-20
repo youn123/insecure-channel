@@ -88,6 +88,7 @@ class Game {
               for (let alert of responseJson.alerts) {
                 switch (alert.code) {
                   case 'NEW_CHANNEL':
+                    console.log(alert);
                     let channelId = alert.id;
 
                     this.channels[channelId] = new Channel(channelId, 'narrowcast', new Set(alert.members));
@@ -131,7 +132,10 @@ class Game {
               break;
           }
 
+          console.log('doh!');
+
           if (!this.running) {
+            console.log('shouldnt be here');
             return;
           }
 
@@ -144,12 +148,15 @@ class Game {
           case 204:
             break;
           default:
+            console.log('shouldnt be here...');
             bot('Server is down...PANICKING');
             this.running = false;
             break;
         }
       });
     }
+
+    console.log('shouldnt be here');
 
     // TODO: clean up
     view.reset();
