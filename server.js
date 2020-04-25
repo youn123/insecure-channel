@@ -30,18 +30,32 @@ class Game {
 
         this.channels = {};
         this.channels.public = new Channel('public', 'broadcast');
+
+        this.beating = false;
     }
 
     heartbeat() {
-        const now = Date.now() / 1000;
-        let dead = [];
+        // if heart already beating
+        if (this.beating) {
+            return;
+        }
+
+        const now = Date.now();
+        let offline = [];
+        let abandoned = true;
 
         for (let player of Object.values(this.players)) {
-            if (now - player.lastRequestMade > 120) {
-                dead.push(player.name);
-                delete this.players[player.name];
+            if (!player.online) {
+                continue;
+            }
 
-                // send message to releveant channels
+            // if player not active for 2 minutes or more...
+            if (now / 1000 - player.lastActive / 1000 > 120) {
+                // mark them as offline
+                offline.push(player.name);
+                player.online = false;
+
+                // notify relevant channels
                 for (let c of Object.values(this.channels)) {
                     if (c.id == 'public' || c.members.has(player.name)) {
                         c.pushMessage({
@@ -52,20 +66,81 @@ class Game {
                     }
                 }
             }
+
+            // if at least one player active
+            if (player.online) {
+                abandoned = false;
+            }
         }
 
-        if (Object.keys(this.players).length == 0) {
+        if (abandoned) {
             this.cleanup();
             return;
         } 
 
-        if (dead.length > 0) {
+        // marshall offline players & send alert
+        if (offline.length > 0) {
             this.broadcastAlert({
                 code: 'PLAYER_LEAVE',
-                dead: dead
+                dead: offline
             });
             this.context.wakeup(this.roomId, 'ALERT');
         }
+    }
+
+    defib() {
+        if (this.beating) {
+            return;
+        }
+
+        // this temporarily turns off regular heartbeat
+        this.beating = true;
+        const beat = Date.now();
+
+        setTimeout(() => {
+            let offline = [];
+            let abandoned = true;
+
+            for (let player of Object.values(this.players)) {
+                // if player did not make a request within 2 seconds...
+                if (player.lastActive < beat) {
+                    offline.push(player.name);
+                    player.online = false;
+    
+                    // send message to releveant channels
+                    for (let c of Object.values(this.channels)) {
+                        if (c.id == 'public' || c.members.has(player.name)) {
+                            c.pushMessage({
+                                text: `<span class="mention">${player.name}</span> got disconnected.`,
+                                from: '*',
+                                race: 'BOT'
+                            });
+                        }
+                    }
+                }
+
+                // if at least one player active
+                if (player.online) {
+                    abandoned = false;
+                }
+            }
+
+            if (abandoned) {
+                this.cleanup();
+                return;
+            }
+
+            // pack offline players & send alert
+            if (offline.length > 0) {
+                this.broadcastAlert({
+                    code: 'PLAYER_LEAVE',
+                    dead: offline
+                });
+                this.context.wakeup(this.roomId, 'ALERT');
+            }
+
+            this.beating = false;
+        }, 5 * 2000);
     }
 
     broadcastAlert(alert) {
@@ -109,18 +184,19 @@ class Game {
     deletePlayer(name) {
         delete this.players[name];
 
-        if (Object.keys(players).length == 0) {
+        // if everyone voluntarily left
+        if (Object.keys(this.players).length == 0) {
             this.cleanup();
             return;
         } 
 
         const msg = {
-            text: `<span class="mention">${name}.</span> got disconnected.`,
+            text: `<span class="mention">${name}.</span> left the chatroom.`,
             from: '*',
             race: 'BOT'
         };
 
-        this.channels.public.pushMessage(msg);
+        this.channels.public.pushMessage(msg);                    
         // send message to relevant channels
         for (let c of Object.values(this.channels)) {
             if (c.id == 'public') {
@@ -141,8 +217,10 @@ class Game {
     pushMessage(message) {
         let id = message.to == 'everyone' ? 'public' : channelId(message.from, message.to);
 
-        if (message.from in this.channels) {
-            message.to = '???'; // hide
+        if (message.from in this.channels && message.to != 'everyone') {
+            // hide receiver
+            message.to = '???';
+            // push to mirror channel
             this.channels[message.from].pushMessage(message);
         }
 
@@ -288,16 +366,17 @@ class Game {
         return {ok: false, msg: `does not have channel ${id}`};
     }
 
-    hasAlertsFor(name) {
+    hasAlerts(name) {
         return this.players[name].alerts.length > 0;
     }
 
-    keepPlayerAlive(name) {
-        this.players[name].keepAlive();
+    logPlayerActivity(name) {
+        this.players[name].log();
     }
 
     cleanup() {
         console.log('cleaning up', this.roomId);
+
         clearInterval(this.healthCheck);
         delete this.context.rooms[this.roomId];
         delete this.context.waiting[this.roomId];
@@ -339,11 +418,14 @@ class Channel {
 class Player {
     constructor(name) {
         this.name = name;
-        this.lastRequestMade = Date.now() / 1000;
+        this.lastActive = Date.now();
 
         // mechanism for notifying players
         this.alerts = [];
+        // number of private channels that this player is part of.
+        // Does not include mirror channels
         this.numPrivateChannels = 0;
+        this.online = true;
     }
 
     pushAlert(alert) {
@@ -357,8 +439,9 @@ class Player {
         return temp;
     }
 
-    keepAlive() {
-        this.lastRequestMade = Date.now() / 1000;
+    // for health check reasons
+    log() {
+        this.lastActive = Date.now();
     }
 }
 
@@ -445,9 +528,9 @@ router.add('GET', /^\/rooms\/([^\/]+)$/, async (server, roomId, request) => {
     // console.log(ghost);
 
     if (!ghost) {
-        room.keepPlayerAlive(me);
+        room.logPlayerActivity(me);
         // if there are any new alerts
-        if (room.hasAlertsFor(me)) {
+        if (room.hasAlerts(me)) {
 
             return {
                 body: JSON.stringify({
@@ -501,6 +584,10 @@ router.add('POST', /^\/rooms\/([^\/]+)\/messages$/, async (server, roomId, reque
     let message = JSON.parse(await readStream(request));
     server.rooms[roomId].pushMessage(message);
     server.wakeup(roomId, 'NEW_MESSAGES');
+
+    if (message.to == 'everyone') {
+        server.rooms[roomId].defib();
+    }
 
     return {status: 201};
 });
@@ -662,7 +749,7 @@ class Server {
                         return true;
                     }
 
-                    if (!this.rooms[roomId].hasAlertsFor(me)) {
+                    if (!this.rooms[roomId].hasAlerts(me)) {
                         return true;
                     }
         
