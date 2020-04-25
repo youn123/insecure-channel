@@ -32,9 +32,53 @@ class Game {
         this.channels.public = new Channel('public', 'broadcast');
     }
 
+    heartbeat() {
+        const now = Date.now() / 1000;
+        let dead = [];
+
+        for (let player of Object.values(this.players)) {
+            if (now - player.lastRequestMade > 120) {
+                dead.push(player.name);
+                delete this.players[player.name];
+
+                // send message to releveant channels
+                for (let c of Object.values(this.channels)) {
+                    if (c.id == 'public' || c.members.has(player.name)) {
+                        c.pushMessage({
+                            text: `<span class="mention">${player.name}</span> got disconnected.`,
+                            from: '*',
+                            race: 'BOT'
+                        });
+                    }
+                }
+            }
+        }
+
+        if (Object.keys(this.players).length == 0) {
+            this.cleanup();
+            return;
+        } 
+
+        if (dead.length > 0) {
+            this.broadcastAlert({
+                code: 'PLAYER_LEAVE',
+                dead: dead
+            });
+            this.context.wakeup(this.roomId, 'ALERT');
+        }
+    }
+
     broadcastAlert(alert) {
         for (let player of Object.values(this.players)) {
             player.pushAlert(alert);
+        }
+    }
+
+    narrowcastAlert(alert, whitelist) {
+        for (let player of whitelist) {
+            if (player in this.players) {
+                this.players[player].pushAlert(alert);
+            }
         }
     }
 
@@ -53,43 +97,8 @@ class Game {
         });
 
         // heartbeat every 5 sec
-        if (!this.heartbeat) {
-            console.log(`${this.roomId} heartbeat started`);
-            this.heartbeat = setInterval(() => {
-                const now = Date.now() / 1000;
-                let dead = [];
-
-                for (let player of Object.values(this.players)) {
-                    if (now - player.lastRequestMade > 120) {
-                        dead.push(player.name);
-                        delete this.players[player.name];
-
-                        // send message to releveant channels
-                        for (let c of Object.values(this.channels)) {
-                            if (c.id == 'public' || c.members.has(player.name)) {
-                                c.pushMessage({
-                                    text: `<span class="mention">${player.name}</span> got disconnected.`,
-                                    from: '*',
-                                    race: 'BOT'
-                                });
-                            }
-                        }
-                    }
-                }
-
-                if (Object.keys(this.players).length == 0) {
-                    this.cleanup();
-                    return;
-                } 
-
-                if (dead.length > 0) {
-                    this.broadcastAlert({
-                        code: 'PLAYER_LEAVE',
-                        dead: dead
-                    });
-                    this.context.wakeup(this.roomId, 'ALERT');
-                }
-            }, 5 * 1000);
+        if (!this.healthCheck) {
+            this.healthCheck = setInterval(() => this.heartbeat(), 5 * 1000);
         }
     }
 
@@ -133,8 +142,8 @@ class Game {
         let id = message.to == 'everyone' ? 'public' : channelId(message.from, message.to);
 
         if (message.from in this.channels) {
-            message.to = '???';
-            this.channels[id].pushMessage(message);
+            message.to = '???'; // hide
+            this.channels[message.from].pushMessage(message);
         }
 
         if (id in this.channels) {
@@ -190,9 +199,6 @@ class Game {
         }
 
         this.channels[id] = new Channel(id, 'narrowcast', new Set([a, b]));
-        
-        this.channels[a] = new Channel(a, 'narrowcast', new Set(a));
-        this.channels[b] = new Channel(b, 'narrowcast', new Set(b));
 
         // alert a and b of new channel creation
         this.players[a].pushAlert({
@@ -202,6 +208,8 @@ class Game {
             members: [a, b]
         });
         this.players[a].numPrivateChannels++;
+        // mirror channel to enable snooping
+        this.channels[a] = new Channel(a, 'narrowcast', new Set(a));
 
         if (a != b) {
             this.players[b].pushAlert({
@@ -211,9 +219,11 @@ class Game {
                 members: [a, b]
             });
             this.players[b].numPrivateChannels++;
+            // mirror channel to enable snooping
+            this.channels[b] = new Channel(b, 'narrowcast', new Set(b));
         }
 
-        return {ok: true, msg: null};
+        return {ok: true};
     }
 
     deletePrivateChannel(a, b) {
@@ -222,12 +232,20 @@ class Game {
             return {ok: false, msg: `channel between ${a} and ${b} does not exist.`}
         }
 
-        // alert a and b of new channel creation
-        this.players[a].pushAlert({
+        const alert = {
             code: 'DELETE_CHANNEL',
-            id: id,
-        });
+            id: id
+        };
+
+        this.players[a].pushAlert(alert);
         this.players[a].numPrivateChannels--;
+
+        if (this.players.numPrivateChannels == 0) {
+            this.narrowcastAlert({
+                code: 'DELETE_CHANNEL',
+                id: a
+            }, ...this.channels[a].snoopers);
+        }
 
         if (a != b) {
             this.players[b].pushAlert({
@@ -235,22 +253,39 @@ class Game {
                 id: id,
             });
             this.players[b].numPrivateChannels--;
+
+            if (this.players.numPrivateChannels == 0) {
+                this.narrowcastAlert({
+                    code: 'DELETE_CHANNEL',
+                    id: b
+                }, ...this.channels[b].snoopers);
+            }
         }
+
+        this.narrowcastAlert({
+            code: 'DELETE_CHANNEL',
+            id: id
+        }, ...this.channels[id].snoopers);
 
         delete this.channels[id];
         delete this.channels[a];
         delete this.channels[b];
 
-        return {ok: true, msg: null};
+        return {ok: true};
     }
 
     snoopChannel(name, id) {
         if (this.channels.hasOwnProperty(id)) {
             this.channels[id].addSnooper(name);
-            return true;
+            this.players[name].pushAlert({
+                code: 'READ_CHANNEL',
+                id: id
+            });
+
+            return {ok: true};
         }
 
-        return false;
+        return {ok: false, msg: `does not have channel ${id}`};
     }
 
     hasAlertsFor(name) {
@@ -263,7 +298,7 @@ class Game {
 
     cleanup() {
         console.log('cleaning up', this.roomId);
-        clearInterval(this.heartbeat);
+        clearInterval(this.healthCheck);
         delete this.context.rooms[this.roomId];
         delete this.context.waiting[this.roomId];
     }
@@ -457,7 +492,7 @@ router.add('GET', /^\/rooms\/([^\/]+)$/, async (server, roomId, request) => {
     return server.wait(wait[1], roomId, request);
 });
 
-// add message to a channel
+// add message 
 router.add('POST', /^\/rooms\/([^\/]+)\/messages$/, async (server, roomId, request) => {
     if (!roomId in server.rooms) {
         return {status: 409, body: `${roomId} doesn't exist.`};
@@ -502,6 +537,23 @@ router.add('DELETE', /^\/rooms\/([^\/]+)\/channels$/, async (server, roomId, req
 
     if (ok) {
         server.wakeup(roomId, 'ALERT', whitelist=new Set([from, to]));
+        return {status: 201};
+    } else {
+        return {status: 409, body: msg};
+    }
+});
+
+router.add('GET', /^\/rooms\/([^\/]+)\/channels\/([^\/]+)$/, async (server, roomId, channelId, request) => {
+    if (!roomId in server.rooms) {
+        return {status: 409, body: `${roomId} doesn't exist.`};
+    }
+
+    let from = request.queryParams.get('from');
+
+    let {ok, msg} = server.rooms[roomId].snoopChannel(from, channelId);
+
+    if (ok) {
+        server.wakeup(roomId, 'ALERT', whitelist=new Set([from]));
         return {status: 201};
     } else {
         return {status: 409, body: msg};

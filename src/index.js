@@ -6,6 +6,10 @@ import {
   CANNOT_CREATE_NEW
 } from './bot-messages.js';
 
+function cid(a, b) {
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
+}
+
 // client states
 const NEW = 0;
 const JOINING = 1;
@@ -86,14 +90,14 @@ class Game {
               break;
             case 'ALERT':
               for (let alert of responseJson.alerts) {
+                let channelId;
+
                 switch (alert.code) {
                   case 'NEW_CHANNEL':
-                    console.log(alert);
-                    let channelId = alert.id;
-
+                    channelId = alert.id;
                     this.channels[channelId] = new Channel(channelId, 'narrowcast', new Set(alert.members));
 
-                    view.addPrivateChannel(channelId, this.myName, alert.other, false, {
+                    view.addPrivateChannel(channelId, false, alert.other, this.myName, {
                       keydown: textKeyDownListenerFactory(privateCommands, {
                         onSubmit: text => this.sendMsg(text, alert.other),
                         channelId: channelId,
@@ -108,6 +112,13 @@ class Game {
                   case 'DELETE_CHANNEL':
                     delete this.channels[alert.id];
                     view.deletePrivateChannel(alert.id);
+                    break;
+                  case 'READ_CHANNEL':
+                    console.log(alert);
+
+                    channelId = alert.id;
+                    this.channels[channelId] = new Channel(channelId, 'narrowcast', new Set(alert.members));
+                    view.addPrivateChannel(channelId, true, alert.id);
                     break;
                   case 'PLAYER_JOIN':
                     this.players.push(alert.new);
@@ -132,10 +143,7 @@ class Game {
               break;
           }
 
-          console.log('doh!');
-
           if (!this.running) {
-            console.log('shouldnt be here');
             return;
           }
 
@@ -148,15 +156,12 @@ class Game {
           case 204:
             break;
           default:
-            console.log('shouldnt be here...');
             bot('Server is down...PANICKING');
             this.running = false;
             break;
         }
       });
     }
-
-    console.log('shouldnt be here');
 
     // TODO: clean up
     view.reset();
@@ -344,6 +349,36 @@ publicCommands['/dm'] = function(...args) {
   fetch(`/rooms/${game.roomName}/channels?from=${game.myName}&to=${args[0]}`, {
     method: 'POST'
   })
+    .then(async response => {
+      if (response.status != 201) {
+        throw new Error(await response.text());
+      }
+    })
+    .catch(error => {
+      bot(error.message);
+    });
+}
+
+publicCommands['/tap'] = function(...args) {
+  if (state != JOINED) {
+    bot('no');
+    return;
+  }
+
+  if (args.length != 1 && args.length != 2) {
+    bot('no');
+    return;
+  }
+
+  let channelId;
+  
+  if (args.length == 1) {
+    channelId = args[0];
+  } else if (args.length == 2) {
+    channelId = cid(args[0], args[1]);
+  }
+
+  fetch(`/rooms/${game.roomName}/channels/${channelId}?from=${game.myName}`)
     .then(async response => {
       if (response.status != 201) {
         throw new Error(await response.text());

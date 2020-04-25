@@ -92,7 +92,7 @@ function appendMessage(id, ...msgs) {
   }
 }
 
-function addPrivateChannel(id, me, other, readonly, textBoxListeners) {
+function addPrivateChannel(id, readonly, other, me, textareaListeners) {
   if (Object.keys(privateChats).length == 0) {
     privateChatsContainer.removeChild(emptyMessage);
 
@@ -105,7 +105,7 @@ function addPrivateChannel(id, me, other, readonly, textBoxListeners) {
 
   let status = document.createElement('DIV');
   status.className = 'private-chat-status';
-  status.innerHTML = other; // indicate who I'm sending messages to
+  status.innerHTML = other;
 
   let messages = document.createElement('DIV');
   messages.className = 'messages';
@@ -113,38 +113,47 @@ function addPrivateChannel(id, me, other, readonly, textBoxListeners) {
   let textBox = document.createElement('DIV');
   textBox.className = 'text-box';
 
-  // build handle
-  let handleContainer = document.createElement('DIV');
-  handleContainer.className = 'handle-container';
+  if (readonly) {
+    textBox.style.backgroundColor = 'var(--banner-color)';
+    textBox.style.justifyContent = 'center';
+    textBox.style.alignItems = 'center';
 
-  let handle = document.createElement('P');
-  handle.className = 'handle';
-  handle.style.fontSize = matchFontSize(me.length);
-  handle.innerHTML = hideLongText(me, handle.style.fontSize);
-  handleContainer.appendChild(handle);
+    let statusBottom = document.createElement('DIV');
+    statusBottom.innerHTML = 'READ ONLY :)';
 
-  // build prompt
-  let prompt = document.createElement('DIV');
-  prompt.className = 'prompt';
-  prompt.innerHTML = '&gt;';
+    textBox.appendChild(statusBottom);
+  } else {
+      // build handle
+      let handleContainer = document.createElement('DIV');
+      handleContainer.className = 'handle-container';
 
-  let textarea = document.createElement('TEXTAREA');
-  textarea.rows = 1;
+      let handle = document.createElement('P');
+      handle.className = 'handle';
+      handle.style.fontSize = matchFontSize(me.length);
+      handle.innerHTML = hideLongText(me, handle.style.fontSize);
+      handleContainer.appendChild(handle);
 
-  textBox.appendChild(handleContainer);
-  textBox.appendChild(prompt);
-  textBox.appendChild(textarea);
+      // build prompt
+      let prompt = document.createElement('DIV');
+      prompt.className = 'prompt';
+      prompt.innerHTML = '&gt;';
+
+      let textarea = document.createElement('TEXTAREA');
+      textarea.rows = 1;
+
+      for (let e of Object.keys(textareaListeners)) {
+        console.log(e);
+        textarea.addEventListener(e, textareaListeners[e]);
+      }
+
+      textBox.appendChild(handleContainer);
+      textBox.appendChild(prompt);
+      textBox.appendChild(textarea);
+  }
 
   container.appendChild(status);
   container.appendChild(messages);
-
-  if (!readonly) {
-    for (let e of Object.keys(textBoxListeners)) {
-      textarea.addEventListener(e, textBoxListeners[e]);
-    } 
-
-    container.appendChild(textBox);
-  }
+  container.appendChild(textBox);
 
   privateChatsContainer.appendChild(container);
   privateChats[id] = container;
